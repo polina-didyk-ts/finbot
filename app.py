@@ -77,7 +77,8 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
 
         tz = ZoneInfo(config.TIMEZONE)
-        date_str = datetime.now(tz).strftime("%d.%m.%Y")
+        default_date_str = datetime.now(tz).strftime("%d.%m.%Y")
+        date_str = ocr_date if ocr_date else default_date_str
 
         append_expense_row(
             sheets_service,
