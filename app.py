@@ -19,7 +19,7 @@ from users import get_user_config
 from google_clients import get_google_services
 from google_drive import upload_receipt_to_drive
 from google_sheets import append_expense_row
-from ocr import extract_amount
+from ocr import extract_receipt_data
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -67,7 +67,9 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         with tempfile.TemporaryDirectory() as td:
             local_path = os.path.join(td, original_filename)
             await file_obj.download_to_drive(custom_path=local_path)
-            amount = extract_amount(local_path)
+            receipt_data = extract_receipt_data(local_path)
+            amount = receipt_data.get("amount", "")
+            ocr_date = receipt_data.get("date", "")
 
             drive_service, sheets_service = get_google_services()
             receipt_link = upload_receipt_to_drive(
@@ -93,6 +95,7 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             f"Дата: {date_str}\n"
             f"Опис: {caption}\n"
             f"Сума: {amount if amount else '(не розпізнано)'}\n"
+            f"OCR-дата: {ocr_date if ocr_date else '(не розпізнано)'}\n"
             f"Чек: {receipt_link}"
         )
 
