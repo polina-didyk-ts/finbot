@@ -96,7 +96,6 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             f"Дата: {date_str}\n"
             f"Опис: {caption}\n"
             f"Сума: {amount if amount else '(не розпізнано)'}\n"
-            f"OCR-дата: {ocr_date if ocr_date else '(не розпізнано)'}\n"
             f"Чек: {receipt_link}"
         )
 
