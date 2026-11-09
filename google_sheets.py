@@ -9,6 +9,7 @@ def append_expense_row(
     amount: str,
     description: str,
     receipt_link: str,
+    is_income: bool = False,
 ) -> None:
     spreadsheet_id = config.GOOGLE_SHEET_ID
     if not spreadsheet_id:
@@ -21,10 +22,12 @@ def append_expense_row(
     # B: empty (Знак 1)
     # C: empty (Знак 2)
     # D: description (Примечания)
-    # E: empty (Приход)
-    # F: amount (Расход)
+    # E: amount if income (Приход)
+    # F: amount if expense (Расход)
     # G: receipt_link (Чек)
-    values: List[List[str]] = [[date, "", "", description, "", amount, receipt_link]]
+    income = amount if is_income else ""
+    expense = "" if is_income else amount
+    values: List[List[str]] = [[date, "", "", description, income, expense, receipt_link]]
 
     body = {"values": values}
     sheets_service.spreadsheets().values().append(
