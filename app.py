@@ -20,6 +20,7 @@ from google_clients import get_google_services
 from google_drive import upload_receipt_to_drive
 from google_sheets import append_expense_row
 from ocr import extract_receipt_data
+from currency import get_rate_to_uah, parse_amount, format_amount
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -70,6 +71,7 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             receipt_data = extract_receipt_data(local_path)
             amount = receipt_data.get("amount", "")
             ocr_date = receipt_data.get("date", "")
+            ocr_error = receipt_data.get("error", "")
 
             drive_service, sheets_service = get_google_services()
             receipt_link = upload_receipt_to_drive(
@@ -80,14 +82,35 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         default_date_str = datetime.now(tz).strftime("%d.%m.%Y")
         date_str = ocr_date if ocr_date else default_date_str
 
+        # currency conversion to UAH at Monobank rate
+        currency = receipt_data.get("currency", "") or "UAH"
+        sheet_amount = amount
+        sheet_description = caption
+        amount_str = f"{amount} {currency}" if amount else ""
+        amount_value = parse_amount(amount)
+        if amount_value is not None and currency != "UAH":
+            rate = get_rate_to_uah(currency)
+            if rate:
+                uah = format_amount(amount_value * rate)
+                original = f"{format_amount(amount_value)} {currency}"
+                sheet_amount = uah
+                sheet_description = f"{caption} ({original}, курс {rate:.4f})"
+                amount_str = f"{uah} UAH ({original} × {rate:.4f}, курс Monobank)"
+            else:
+                sheet_description = f"{caption} ({format_amount(amount_value)} {currency}, не конвертовано)"
+                amount_str = f"{amount} {currency} ⚠️ курс не отримано, записано без конвертації"
+
         append_expense_row(
             sheets_service,
             user_cfg["sheet_tab"],
             date_str,
-            amount,
-            caption,
+            sheet_amount,
+            sheet_description,
             receipt_link,
         )
+
+        if not amount:
+            amount_str = f"(не розпізнано: {ocr_error})" if ocr_error else "(не розпізнано)"
 
         await update.message.reply_text(
             "Чек додано ✅\n\n"
@@ -95,7 +118,7 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             f"Вкладка: {user_cfg.get('sheet_tab')}\n"
             f"Дата: {date_str}\n"
             f"Опис: {caption}\n"
-            f"Сума: {amount if amount else '(не розпізнано)'}\n"
+            f"Сума: {amount_str}\n"
             f"Чек: {receipt_link}"
         )
 

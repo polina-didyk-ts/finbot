@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 import os
 from typing import Optional
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 TELEGRAM_BOT_TOKEN: Optional[str] = os.getenv("TELEGRAM_BOT_TOKEN")
 GOOGLE_OAUTH_CLIENT_SECRET_FILE: Optional[str] = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET_FILE")

@@ -36,7 +36,7 @@ def extract_receipt_data(image_path: str) -> dict[str, str]:
     api_key = config.ANTHROPIC_API_KEY
     if not api_key:
         logging.error("OCR: ANTHROPIC_API_KEY is not configured")
-        return {"amount": "", "date": ""}
+        return {"amount": "", "date": "", "error": "ANTHROPIC_API_KEY не налаштований"}
 
     media_type = _get_media_type(image_path)
     try:
@@ -51,10 +51,13 @@ def extract_receipt_data(image_path: str) -> dict[str, str]:
             "не номер картки чи рахунку). Якщо банківська квитанція — бери поле "
             "'Сума' транзакції, ігноруючи комісію.\n"
             "2. Дату операції у форматі ДД.ММ.РРРР (дата самої покупки/платежу, "
-            "а не дата друку чи інша).\n\n"
+            "а не дата друку чи інша).\n"
+            "3. Валюту суми як трилітерний код ISO 4217 (UAH, PLN, EUR, USD тощо). "
+            "Визначай за символами та позначками на документі (zł, PLN, грн, ₴, €, $), "
+            "а також за країною, мовою та адресою продавця.\n\n"
             "Відповідай ТІЛЬКИ у форматі JSON без жодного додаткового тексту:\n"
-            '{"amount": "320.50", "date": "15.06.2026"}\n\n'
-            "Якщо суму або дату визначити неможливо — залиш відповідне поле "
+            '{"amount": "320.50", "date": "15.06.2026", "currency": "UAH"}\n\n'
+            "Якщо суму, дату або валюту визначити неможливо — залиш відповідне поле "
             "порожнім рядком."
         )
 
@@ -90,7 +93,7 @@ def extract_receipt_data(image_path: str) -> dict[str, str]:
                     ],
                 }
             ],
-            max_tokens=100,
+            max_tokens=200,
         )
 
         if not response or not hasattr(response, "content"):
@@ -104,7 +107,18 @@ def extract_receipt_data(image_path: str) -> dict[str, str]:
         parsed = json.loads(cleaned_text)
         amount = str(parsed.get("amount", ""))
         date = str(parsed.get("date", ""))
-        return {"amount": amount.replace(".", ","), "date": date}
+        currency = str(parsed.get("currency", "") or "").strip().upper()
+        return {"amount": amount.replace(".", ","), "date": date, "currency": currency}
+    except anthropic.APIStatusError as e:
+        logging.exception("OCR: Anthropic API error for image %s", image_path)
+        message = getattr(e, "message", "") or str(e)
+        if "credit balance" in message.lower():
+            reason = "закінчився баланс Anthropic API"
+        elif e.status_code in (401, 403):
+            reason = "невірний або неактивний ANTHROPIC_API_KEY"
+        else:
+            reason = f"помилка Anthropic API ({e.status_code})"
+        return {"amount": "", "date": "", "error": reason}
     except Exception:
         logging.exception("OCR: failed to extract receipt data from image %s", image_path)
         return {"amount": "", "date": ""}
