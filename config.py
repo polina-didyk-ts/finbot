@@ -15,3 +15,10 @@ GOOGLE_DRIVE_ROOT_FOLDER_ID: Optional[str] = os.getenv("GOOGLE_DRIVE_ROOT_FOLDER
 GOOGLE_SHEET_ID: Optional[str] = os.getenv("GOOGLE_SHEET_ID")
 ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
 TIMEZONE: str = os.getenv("TIMEZONE", "Europe/Warsaw")
+
+# Slack bot (2027+)
+SLACK_BOT_TOKEN: Optional[str] = os.getenv("SLACK_BOT_TOKEN")
+SLACK_APP_TOKEN: Optional[str] = os.getenv("SLACK_APP_TOKEN")
+SLACK_CHANNEL_ID: Optional[str] = os.getenv("SLACK_CHANNEL_ID")
+SLACK_GOOGLE_SHEET_ID: Optional[str] = os.getenv("SLACK_GOOGLE_SHEET_ID")
+SLACK_GOOGLE_DRIVE_ROOT_FOLDER_ID: Optional[str] = os.getenv("SLACK_GOOGLE_DRIVE_ROOT_FOLDER_ID")

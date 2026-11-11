@@ -1,0 +1,25 @@
+display_information:
+  name: Finance Receipt Bot
+  description: Записує чеки та надходження у Google Sheets і зберігає документи в Google Drive
+  background_color: "#2c2d30"
+features:
+  bot_user:
+    display_name: finbot
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - channels:history   # read messages in public channels the bot is in
+      - groups:history     # read messages in private channels the bot is in
+      - chat:write         # reply in threads
+      - files:read         # download attached receipts
+settings:
+  event_subscriptions:
+    bot_events:
+      - message.channels
+      - message.groups
+  interactivity:
+    is_enabled: false
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false
