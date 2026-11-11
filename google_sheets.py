@@ -1,5 +1,26 @@
 import config
-from typing import Optional, List
+from typing import List
+
+
+def _quote_tab(sheet_tab: str) -> str:
+    # Sheet names with spaces/dots/Cyrillic must be quoted; single quotes are doubled
+    return "'" + sheet_tab.replace("'", "''") + "'"
+
+
+def _next_empty_row(sheets_service, spreadsheet_id: str, tab: str) -> int:
+    """Row number right after the last row that has any value in columns A:G."""
+    resp = (
+        sheets_service.spreadsheets()
+        .values()
+        .get(spreadsheetId=spreadsheet_id, range=f"{tab}!A:G")
+        .execute()
+    )
+    rows = resp.get("values", [])
+    # the API trims trailing empty rows, but keep a guard for rows of empty strings
+    last = len(rows)
+    while last > 0 and not any(str(c).strip() for c in rows[last - 1]):
+        last -= 1
+    return last + 1
 
 
 def append_expense_row(
@@ -15,8 +36,6 @@ def append_expense_row(
     if not spreadsheet_id:
         raise RuntimeError("GOOGLE_SHEET_ID not configured")
 
-    range_name = f"{sheet_tab}!A:G"
-
     # Columns mapping:
     # A: date
     # B: empty (Знак 1)
@@ -29,11 +48,14 @@ def append_expense_row(
     expense = "" if is_income else amount
     values: List[List[str]] = [[date, "", "", description, income, expense, receipt_link]]
 
-    body = {"values": values}
-    sheets_service.spreadsheets().values().append(
+    # Write to an explicit A:G range of the next free row. values().append() guesses
+    # where the "table" starts and, with manual edits in the sheet, sometimes shifted
+    # the whole row several columns to the right.
+    tab = _quote_tab(sheet_tab)
+    row = _next_empty_row(sheets_service, spreadsheet_id, tab)
+    sheets_service.spreadsheets().values().update(
         spreadsheetId=spreadsheet_id,
-        range=range_name,
+        range=f"{tab}!A{row}:G{row}",
         valueInputOption="USER_ENTERED",
-        insertDataOption="INSERT_ROWS",
-        body=body,
+        body={"values": values},
     ).execute()

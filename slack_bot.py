@@ -68,15 +68,26 @@ def _download_slack_file(file_info: dict, dest_dir: str) -> str:
     return local_path
 
 
+log = logging.getLogger("slack_bot")
+
+
 @app.event("message")
-def handle_message(event, say, logger):
+def handle_message(event, say, logger=None):
+    log.info(
+        "event: subtype=%s channel=%s user=%s files=%d thread_ts=%s bot=%s",
+        event.get("subtype"), event.get("channel"), event.get("user"),
+        len(event.get("files") or []), event.get("thread_ts"), bool(event.get("bot_id")),
+    )
     # only plain user messages and file uploads; skip edits, joins, bot messages
     if event.get("subtype") not in (None, "file_share") or event.get("bot_id"):
+        log.info("skip: subtype/bot")
         return
     # only top-level messages; replies inside threads are regular conversation
     if event.get("thread_ts") and event.get("thread_ts") != event.get("ts"):
+        log.info("skip: thread reply")
         return
     if config.SLACK_CHANNEL_ID and event.get("channel") != config.SLACK_CHANNEL_ID:
+        log.info("skip: other channel (expected %s)", config.SLACK_CHANNEL_ID)
         return
 
     text = _clean_text(event.get("text", ""))
@@ -88,7 +99,8 @@ def handle_message(event, say, logger):
             say(text=HELP_TEXT, thread_ts=thread_ts)
             return
         if not is_income_text(text):
-            return  # ordinary chat message, ignore
+            log.info("skip: ordinary chat message")
+            return
 
     user_id = event.get("user")
     user_cfg = get_slack_user_config(user_id)
@@ -109,6 +121,7 @@ def handle_message(event, say, logger):
 
         # each attached file is a separate receipt with the same description
         for file_info in files:
+            log.info("processing file %s (%s)", file_info.get("id"), file_info.get("mimetype"))
             with tempfile.TemporaryDirectory() as td:
                 local_path = _download_slack_file(file_info, td)
                 reply = process_file_entry(
